@@ -5,6 +5,7 @@ import makeWASocket, {
 import { Boom } from "@hapi/boom";
 import * as qrcode from "qrcode-terminal";
 import pino from "pino";
+import { readXlsxFile } from "./xlsxReader";
 
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
@@ -44,15 +45,18 @@ async function connectToWhatsApp() {
   sock.ev.on("creds.update", saveCreds);
 
   async function sendMessages() {
-    const recipients = [
-      "553496842685@s.whatsapp.net",
-      "553498823802@s.whatsapp.net",
-    ];
-    const message = { text: " Message Test " };
+    const filePath = "C:/Users/thaly/Downloads/Planilha sem título.xlsx";
+    const contacts = readXlsxFile(filePath);
 
-    for (const recipient of recipients) {
+    for (const contact of contacts) {
+      const recipient = `${contact.telefone}@s.whatsapp.net`;
+      const messageText =
+        contact.sexo === "M"
+          ? `Olá ${contact.nome}, agradecemos muito pela sua visita à Igreja Familiar do Avivamento. Estamos super felizes pela sua presença e saiba que aqui você encontra uma família. Saiba que você é precioso para nós. "E consideremo-nos uns aos outros para nos incentivarmos ao amor e às boas obras." (Hebreus 10:24)`
+          : `Olá ${contact.nome}, agradecemos muito pela sua visita à Igreja Familiar do Avivamento. Estamos super felizes pela sua presença e saiba que aqui você encontra uma família. Saiba que você é preciosa para nós. "E consideremo-nos uns aos outros para nos incentivarmos ao amor e às boas obras." (Hebreus 10:24)`;
+
       try {
-        await sock.sendMessage(recipient, message);
+        await sock.sendMessage(recipient, { text: messageText });
         console.log(`Message sent to ${recipient}: success`);
       } catch (error) {
         console.error(`Message sent to ${recipient}: false`, error);
