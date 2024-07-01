@@ -1,18 +1,21 @@
+import express, { Request, Response } from "express";
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import * as qrcode from "qrcode-terminal";
+import qrcodeTerminal from "qrcode-terminal";
+import qrcode from "qrcode";
 import pino from "pino";
 import { readXlsxFile } from "./xlsxReader";
+
+let qrCodeData = "";
 
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true,
     logger: pino({ level: "error" }),
   });
 
@@ -20,7 +23,8 @@ async function connectToWhatsApp() {
     const { connection, qr, lastDisconnect } = update;
 
     if (qr) {
-      qrcode.generate(qr, { small: true });
+      qrCodeData = qr;
+      qrcodeTerminal.generate(qr, { small: true }); // Gera o QR code no terminal
     }
 
     if (connection === "close") {
@@ -45,8 +49,8 @@ async function connectToWhatsApp() {
   sock.ev.on("creds.update", saveCreds);
 
   async function sendMessages() {
-    const filePath = "C:/Users/thaly/Downloads/Planilha sem título.xlsx";
-    const contacts = readXlsxFile(filePath);
+    const filePath = "C:/Users/thaly/Downloads/Planilha_ajustada (1) (3)";
+    const contacts = await readXlsxFile(filePath);
 
     for (const contact of contacts) {
       const recipient = `${contact.telefone}@s.whatsapp.net`;
@@ -66,3 +70,24 @@ async function connectToWhatsApp() {
 }
 
 connectToWhatsApp();
+
+const app = express();
+const port = 4001;
+
+app.get("/qrcode", async (req: Request, res: Response) => {
+  if (qrCodeData) {
+    try {
+      const qrCodeUrl = await qrcode.toDataURL(qrCodeData);
+      res.setHeader("Content-Type", "text/html");
+      res.send(`<img src="${qrCodeUrl}" alt="QR Code" />`);
+    } catch (error) {
+      res.status(500).send("Error generating QR code");
+    }
+  } else {
+    res.status(404).send("QR code not generated yet. Please wait.");
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
